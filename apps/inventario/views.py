@@ -1,3 +1,173 @@
-from django.shortcuts import render
+from rest_framework import viewsets, status, filters
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-# Create your views here.
+from .models import TipoCategoria, Marca, Prestamo, Producto
+from serializer.serializers import (
+    TipoCategoriaSerializer,
+    MarcaSerializer,
+    PrestamoSerializer,
+    ProductoSerializer,
+    ProductoReadSerializer,
+)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Mixin CRUD explícito reutilizable (patrón idéntico al de renta)
+# ─────────────────────────────────────────────────────────────────
+class ExplicitCRUDMixin:
+    def list(self, request, *args, **kwargs):
+        qs   = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        ser  = self.get_serializer(page or qs, many=True)
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response(self.get_serializer(self.get_object()).data)
+
+    def create(self, request, *args, **kwargs):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        ser = self.get_serializer(self.get_object(), data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        ser = self.get_serializer(self.get_object(), data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────────────────────────
+# TIPO CATEGORÍA
+# ─────────────────────────────────────────────────────────────────
+class TipoCategoriaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
+    queryset           = TipoCategoria.objects.all().order_by("tipr_nombre")
+    serializer_class   = TipoCategoriaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ["tipr_nombre"]
+    ordering_fields    = ["tipr_nombre", "tipr_id"]
+
+
+# ─────────────────────────────────────────────────────────────────
+# MARCA
+# ─────────────────────────────────────────────────────────────────
+class MarcaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
+    queryset           = Marca.objects.all().order_by("marca_nombre")
+    serializer_class   = MarcaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ["marca_nombre"]
+    ordering_fields    = ["marca_nombre", "marca_id"]
+
+
+# ─────────────────────────────────────────────────────────────────
+# PRÉSTAMO
+# ─────────────────────────────────────────────────────────────────
+class PrestamoViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
+    queryset           = Prestamo.objects.all().order_by("pres_nombre")
+    serializer_class   = PrestamoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ["pres_nombre", "tipo_prestamo"]
+    ordering_fields    = ["pres_nombre", "pres_id"]
+
+
+# ─────────────────────────────────────────────────────────────────
+# PRODUCTO
+# ─────────────────────────────────────────────────────────────────
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = (
+        Producto.objects
+        .select_related("tipo_categoria", "marca", "prestamo")
+        .all()
+        .order_by("prod_nombre", "prod_id")
+    )
+    permission_classes = [IsAuthenticated]
+
+    # MultiPartParser → botón de upload de imagen en Browsable API
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields   = ["prod_nombre", "codigo_producto"]
+    ordering_fields = ["prod_nombre", "prod_valor_unitario", "prod_cantidad_total"]
+
+    def get_queryset(self):
+        """
+        Filtros opcionales por query param:
+          ?marca=1
+          ?tipo_categoria=2
+          ?prod_estado=Disponible
+        Sin django-filter para no añadir dependencias.
+        """
+        qs = super().get_queryset()
+        p  = self.request.query_params
+
+        if marca := p.get("marca"):
+            qs = qs.filter(marca__marca_id=marca)
+        if categoria := p.get("tipo_categoria"):
+            qs = qs.filter(tipo_categoria__tipr_id=categoria)
+        if estado := p.get("prod_estado"):
+            qs = qs.filter(prod_estado=estado)
+
+        return qs
+
+    def get_serializer_class(self):
+        return ProductoReadSerializer if self.action in ["list", "retrieve"] else ProductoSerializer
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["request"] = self.request
+        return ctx
+
+    # ── CRUD (escritura → responde con lectura expandida) ────────
+    def list(self, request, *args, **kwargs):
+        qs   = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        ser  = self.get_serializer(page or qs, many=True)
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response(self.get_serializer(self.get_object()).data)
+
+    def create(self, request, *args, **kwargs):
+        ser = ProductoSerializer(data=request.data, context=self.get_serializer_context())
+        ser.is_valid(raise_exception=True)
+        instance = ser.save()
+        return Response(
+            ProductoReadSerializer(instance, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ser = ProductoSerializer(instance, data=request.data, context=self.get_serializer_context())
+        ser.is_valid(raise_exception=True)
+        instance = ser.save()
+        return Response(ProductoReadSerializer(instance, context=self.get_serializer_context()).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ser = ProductoSerializer(
+            instance, data=request.data, partial=True,
+            context=self.get_serializer_context(),
+        )
+        ser.is_valid(raise_exception=True)
+        instance = ser.save()
+        return Response(ProductoReadSerializer(instance, context=self.get_serializer_context()).data)
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

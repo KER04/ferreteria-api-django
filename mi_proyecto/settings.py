@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.inventario.apps.InventarioConfig',
     'apps.mantenimiento.apps.MantenimientoConfig',
-    'apps.renta.apps.RentaConfig',
+    'apps.operaciones.apps.OperacionesConfig',
 
     'rest_framework',
     'rest_framework_simplejwt',
@@ -132,6 +132,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ─── Media files (imágenes de productos, etc.) ───────────────────
+MEDIA_URL  = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+# Las imágenes de productos se guardan en:
+#   <BASE_DIR>/media/productos/fotos/<filename>
+# Y se acceden en desarrollo desde:
+#   http://localhost:8000/media/productos/fotos/<filename>
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
