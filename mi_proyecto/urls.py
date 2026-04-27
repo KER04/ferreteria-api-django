@@ -10,7 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
  
     # Autenticación (login, logout, registro, roles, recursos)
-    path('api/autenticacion/', include('apps.autenticacion.urls')),
+    path('api/auth/', include('apps.autenticacion.urls')),
  
     # Usuarios (CRUD protegido con IsAdminRole)
     path('usuarios/',        UsuarioListView.as_view(),                name='usuario-list'),

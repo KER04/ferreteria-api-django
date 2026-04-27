@@ -150,9 +150,9 @@ AUTH_USER_MODEL = 'autenticacion.Usuario'
 
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",
+    "http://localhost:4200", #puerto de Angular
 ]
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True # Permite enviar cookies (como el token JWT) en solicitudes CORS
 
 # Si usas CSRF:
 CSRF_TRUSTED_ORIGINS = ["http://localhost:4200"]

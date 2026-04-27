@@ -103,7 +103,12 @@ class HelloFromCookieView(APIView):
             return Response({"detail": f"Token inválido: {str(e)}"}, status=401)
 
         return Response({
-            "message": f"Hola, {validated_user.username}, estas autenticado <3"
+            "message": f"Hola, {validated_user.username}",
+            "user": {                          # ← agregar esto
+                "id": validated_user.id,
+                "username": validated_user.username,
+                "email": validated_user.email,
+            }
         })
 
 # CERRAR SESION
