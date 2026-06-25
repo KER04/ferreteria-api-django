@@ -85,6 +85,9 @@ class SalidaReadSerializer(serializers.ModelSerializer):
 # MANTENIMIENTO — escritura (entrada)
 # ─────────────────────────────────────────────
 class MantenimientoWriteSerializer(serializers.ModelSerializer):
+    # El usuario se toma del token, no del cliente — evita suplantación.
+    usuario = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model  = Mantenimiento
         fields = [
@@ -102,6 +105,11 @@ class MantenimientoWriteSerializer(serializers.ModelSerializer):
                 "La cantidad debe ser mayor que cero."
             )
         return value
+
+    def update(self, instance, validated_data):
+        # El dueño original NUNCA cambia al editar.
+        validated_data.pop("usuario", None)
+        return super().update(instance, validated_data)
 
     def validate(self, attrs):
         producto  = attrs["producto"]

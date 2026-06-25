@@ -63,6 +63,8 @@ class DetalleWriteSerializer(serializers.ModelSerializer):
 # ─────────────────────────────────────────────
 class OperacionWriteSerializer(serializers.ModelSerializer):
     detalles = DetalleWriteSerializer(many=True)
+    # El usuario se toma del token, no del cliente — evita suplantación.
+    usuario  = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model  = Operacion
@@ -108,6 +110,13 @@ class OperacionWriteSerializer(serializers.ModelSerializer):
         for item in detalles_data:
             DetalleOperacion.objects.create(operacion=operacion, **item)
         return operacion
+
+    def update(self, instance, validated_data):
+        # El dueño original NUNCA cambia al editar la cabecera.
+        validated_data.pop("usuario", None)
+        # Los detalles no se modifican por esta vía (protege el stock).
+        validated_data.pop("detalles", None)
+        return super().update(instance, validated_data)
 
 
 # ─────────────────────────────────────────────

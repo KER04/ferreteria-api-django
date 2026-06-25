@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 
+from apps.autenticacion.permissions import IsAdminOrReadOnly
+
 from .models import Costo, TipoMantenimiento, Mantenimiento, SalidaMantenimiento
 from .serializers import (
     CostoSerializer,
@@ -20,7 +22,7 @@ from .serializers import (
 class CostoViewSet(viewsets.ModelViewSet):
     queryset           = Costo.objects.all().order_by("-cost_id")
     serializer_class   = CostoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
@@ -39,7 +41,7 @@ class CostoViewSet(viewsets.ModelViewSet):
 class TipoMantenimientoViewSet(viewsets.ModelViewSet):
     queryset           = TipoMantenimiento.objects.all().order_by("tima_nombre")
     serializer_class   = TipoMantenimientoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends    = [filters.SearchFilter]
     search_fields      = ["tima_nombre"]
 

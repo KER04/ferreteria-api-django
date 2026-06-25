@@ -1,7 +1,8 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
+from apps.autenticacion.permissions import IsAdminOrReadOnly
 
 from .models import TipoCategoria, Marca, Prestamo, Producto
 from .serializers import (
@@ -55,7 +56,7 @@ class ExplicitCRUDMixin:
 class TipoCategoriaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
     queryset           = TipoCategoria.objects.all().order_by("tipr_nombre")
     serializer_class   = TipoCategoriaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ["tipr_nombre"]
     ordering_fields    = ["tipr_nombre", "tipr_id"]
@@ -67,7 +68,7 @@ class TipoCategoriaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
 class MarcaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
     queryset           = Marca.objects.all().order_by("marca_nombre")
     serializer_class   = MarcaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ["marca_nombre"]
     ordering_fields    = ["marca_nombre", "marca_id"]
@@ -79,7 +80,7 @@ class MarcaViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
 class PrestamoViewSet(ExplicitCRUDMixin, viewsets.ModelViewSet):
     queryset           = Prestamo.objects.all().order_by("pres_nombre")
     serializer_class   = PrestamoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ["pres_nombre", "tipo_prestamo"]
     ordering_fields    = ["pres_nombre", "pres_id"]
@@ -95,7 +96,7 @@ class ProductoViewSet(viewsets.ModelViewSet):
         .all()
         .order_by("prod_nombre", "prod_id")
     )
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
 
     # MultiPartParser → botón de upload de imagen en Browsable API
     parser_classes = [MultiPartParser, FormParser, JSONParser]
