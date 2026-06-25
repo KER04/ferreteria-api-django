@@ -43,10 +43,16 @@ class ProductoSerializer(serializers.ModelSerializer):
             "prod_cantidad_prestada",
             "prod_cantidad_en_mantenimiento",
             "prod_cantidad_total",
+            "prod_stock_minimo",
             "tipo_categoria",
             "marca",
             "prestamo",
         ]
+
+    def validate_prod_stock_minimo(self, value):
+        if value < 0:
+            raise serializers.ValidationError("El stock mínimo no puede ser negativo.")
+        return value
 
     def validate_prod_cantidad_disponible(self, value):
         if value < 0:
@@ -64,6 +70,7 @@ class ProductoReadSerializer(serializers.ModelSerializer):
     marca_nombre          = serializers.StringRelatedField(source="marca",          read_only=True)
     prestamo_nombre       = serializers.StringRelatedField(source="prestamo",       read_only=True)
     prod_foto_url         = serializers.SerializerMethodField()
+    bajo_stock            = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Producto
@@ -83,6 +90,8 @@ class ProductoReadSerializer(serializers.ModelSerializer):
             "prod_cantidad_prestada",
             "prod_cantidad_en_mantenimiento",
             "prod_cantidad_total",
+            "prod_stock_minimo",
+            "bajo_stock",
             "tipo_categoria",
             "tipo_categoria_nombre",
             "marca",

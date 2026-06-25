@@ -107,6 +107,10 @@ class Producto(models.Model):
     prod_cantidad_prestada   = models.IntegerField(default=0, editable=False)
     prod_cantidad_en_mantenimiento = models.IntegerField(default=0, editable=False)
     prod_cantidad_total      = models.IntegerField(default=0, editable=False)
+    prod_stock_minimo        = models.IntegerField(
+        default=0,
+        help_text="Umbral mínimo. Si el disponible cae a este nivel o menos, se considera stock bajo.",
+    )
 
     # ── relaciones ───────────────────────────
     tipo_categoria = models.ForeignKey(
@@ -132,6 +136,12 @@ class Producto(models.Model):
         db_table            = "productos"
         verbose_name        = "Producto"
         verbose_name_plural = "Productos"
+
+    # ── propiedades calculadas ───────────────
+    @property
+    def bajo_stock(self) -> bool:
+        """True si el stock disponible está en o por debajo del umbral mínimo."""
+        return (self.prod_cantidad_disponible or 0) <= (self.prod_stock_minimo or 0)
 
     # ── helpers ──────────────────────────────
     def _generar_codigo(self) -> str:

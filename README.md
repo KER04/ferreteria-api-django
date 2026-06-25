@@ -73,7 +73,7 @@ Cada app contiene sus propios `models.py`, `serializers.py`, `views.py` y `urls.
 
 ```bash
 git clone https://github.com/KER04/ferreteria-api-django.git
-cd MMI-inventario
+cd ferreteria-api-django
 ```
 
 ### 2. Crear y activar el entorno virtual
@@ -246,7 +246,9 @@ El **estado** del producto (`Disponible`, `Prestado`, `Mantenimiento`, `Dañado`
 
 ## 📝 Pendientes / Roadmap
 
-- [ ] Tests automatizados de la lógica de stock
+- [x] Tests automatizados de la lógica de stock
+- [x] Alerta de stock bajo (`?bajo_stock=true`)
+- [x] Endpoint de dashboard (`/api/inventario/dashboard/`)
 - [ ] Documentación interactiva (Swagger / drf-spectacular)
 - [ ] Migración a PostgreSQL para producción
 - [ ] Permisos granulares por recurso (`TieneAccesoRecurso`)
@@ -254,4 +256,4 @@ El **estado** del producto (`Disponible`, `Prestado`, `Mantenimiento`, `Dañado`
 
 ---
 
-> Proyecto **MMI** — versión preliminar.
+> Proyecto **Ferretería** — versión preliminar.

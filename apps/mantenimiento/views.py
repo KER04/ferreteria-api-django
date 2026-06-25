@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -155,6 +156,13 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        # Un mantenimiento en proceso retiene stock; debe cancelarse primero
+        # para devolver las unidades. Solo los cancelados pueden borrarse.
+        if instance.estado == Mantenimiento.Estado.EN_PROCESO:
+            return Response(
+                {"detail": "No se puede eliminar un mantenimiento en proceso. Cancélalo primero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if instance.estado == Mantenimiento.Estado.FINALIZADO:
             return Response(
                 {"detail": "No se puede eliminar un mantenimiento finalizado."},
@@ -179,6 +187,44 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
         ser  = SalidaWriteSerializer(data=data)
         ser.is_valid(raise_exception=True)
         salida = ser.save()
+
+        out = MantenimientoReadSerializer(
+            Mantenimiento.objects.get(pk=mant.pk),
+            context=self.get_serializer_context(),
+        )
+        return Response(out.data, status=status.HTTP_200_OK)
+
+    # ── acción: cancelar (devuelve el stock retenido) ──
+    @action(detail=True, methods=["post"], url_path="cancelar")
+    def cancelar(self, request, pk=None):
+        from django.db import transaction
+        from apps.inventario.models import Producto
+
+        mant = self.get_object()
+        if mant.estado != Mantenimiento.Estado.EN_PROCESO:
+            return Response(
+                {"detail": f"Solo se pueden cancelar mantenimientos en proceso "
+                           f"(estado actual: '{mant.estado}')."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            mant     = Mantenimiento.objects.select_for_update().get(pk=mant.pk)
+            producto = Producto.objects.select_for_update().get(pk=mant.producto_id)
+
+            # Devolver al stock las unidades aún en mantenimiento
+            pendiente = mant.cantidad_pendiente   # ingresada - recuperada - baja
+            producto.prod_cantidad_en_mantenimiento -= pendiente
+            producto.prod_cantidad_disponible       += pendiente
+
+            # Si el producto había quedado marcado en mantenimiento, liberarlo
+            if producto.prod_estado == Producto.Estado.MANTENIMIENTO:
+                producto.prod_estado = Producto.Estado.DISPONIBLE
+            producto.save()
+
+            mant.estado       = Mantenimiento.Estado.CANCELADO
+            mant.fecha_salida = timezone.now().date()
+            mant.save(update_fields=["estado", "fecha_salida"])
 
         out = MantenimientoReadSerializer(
             Mantenimiento.objects.get(pk=mant.pk),

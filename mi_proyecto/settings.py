@@ -1,22 +1,24 @@
-import os
 from pathlib import Path
 from datetime import timedelta
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# En producción define la variable de entorno SECRET_KEY en el servidor.
-SECRET_KEY = os.environ.get(
+# Se lee de .env (o variable de entorno). El default solo aplica en desarrollo.
+SECRET_KEY = config(
     'SECRET_KEY',
-    'django-insecure-m3sfi(p577hkwgu9q1-fuxudanrm9gn=)pefk0ifqb$ho+41ck',
+    default='django-insecure-m3sfi(p577hkwgu9q1-fuxudanrm9gn=)pefk0ifqb$ho+41ck',
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Define DEBUG=False en el .env del servidor de producción.
+DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+# Hosts permitidos: en producción define ALLOWED_HOSTS=midominio.com,www.midominio.com
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
 
 
 # Application definition

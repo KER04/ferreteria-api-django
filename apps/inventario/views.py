@@ -1,5 +1,10 @@
+from decimal import Decimal
+from django.db.models import F, Sum, Count, DecimalField
+from django.db.models.functions import Coalesce
 from rest_framework import viewsets, status, filters
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from apps.autenticacion.permissions import IsAdminOrReadOnly
@@ -111,6 +116,7 @@ class ProductoViewSet(viewsets.ModelViewSet):
           ?marca=1
           ?tipo_categoria=2
           ?prod_estado=Disponible
+          ?bajo_stock=true   (disponible <= stock mínimo)
         Sin django-filter para no añadir dependencias.
         """
         qs = super().get_queryset()
@@ -122,6 +128,8 @@ class ProductoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tipo_categoria__tipr_id=categoria)
         if estado := p.get("prod_estado"):
             qs = qs.filter(prod_estado=estado)
+        if p.get("bajo_stock", "").lower() in ("true", "1", "si", "sí"):
+            qs = qs.filter(prod_cantidad_disponible__lte=F("prod_stock_minimo"))
 
         return qs
 
@@ -172,3 +180,51 @@ class ProductoViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         self.get_object().delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────────────────────────
+# DASHBOARD / ESTADÍSTICAS
+# ─────────────────────────────────────────────────────────────────
+class DashboardView(APIView):
+    """
+    Resumen para el panel de control.
+    GET /api/inventario/dashboard/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.operaciones.models import Operacion
+
+        productos = Producto.objects.all()
+
+        valor_inventario = productos.aggregate(
+            total=Coalesce(
+                Sum(
+                    F("prod_cantidad_disponible") * F("prod_valor_unitario"),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+                Decimal("0"),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            )
+        )["total"]
+
+        ops_por_estado = {
+            row["estado"]: row["n"]
+            for row in Operacion.objects.values("estado").annotate(n=Count("id"))
+        }
+
+        data = {
+            "inventario": {
+                "total_productos":        productos.count(),
+                "agotados":               productos.filter(prod_estado=Producto.Estado.AGOTADO).count(),
+                "bajo_stock":             productos.filter(prod_cantidad_disponible__lte=F("prod_stock_minimo")).count(),
+                "en_mantenimiento":       productos.filter(prod_cantidad_en_mantenimiento__gt=0).count(),
+                "valor_total_disponible": valor_inventario,
+            },
+            "operaciones": {
+                "activas":     ops_por_estado.get(Operacion.EstadoOperacion.ACTIVA, 0),
+                "finalizadas": ops_por_estado.get(Operacion.EstadoOperacion.FINALIZADA, 0),
+                "canceladas":  ops_por_estado.get(Operacion.EstadoOperacion.CANCELADA, 0),
+            },
+        }
+        return Response(data)
