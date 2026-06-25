@@ -1,4 +1,4 @@
-# MMI — API de Gestión de Ferretería
+# FERRETERIA — API de Gestión de Ferretería
 
 API REST construida con **Django** y **Django REST Framework** para la gestión interna de una ferretería: control de inventario, venta y préstamo de productos, devoluciones y mantenimiento de unidades dañadas. Incluye autenticación por **JWT en cookies HttpOnly** y control de acceso por roles.
 
@@ -72,7 +72,7 @@ Cada app contiene sus propios `models.py`, `serializers.py`, `views.py` y `urls.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/KER04/MMI-inventario.git
+git clone https://github.com/KER04/ferreteria-api-django.git
 cd MMI-inventario
 ```
 
