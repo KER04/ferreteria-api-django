@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import TipoCategoria, Marca, Prestamo, Producto
-from serializer.serializers import (
+from .serializers import (
     TipoCategoriaSerializer,
     MarcaSerializer,
     PrestamoSerializer,

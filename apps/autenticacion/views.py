@@ -1,14 +1,17 @@
 # Importaciones: 
-from rest_framework import generics, permissions, status
-from .models import Usuario
-from serializer.serializers import *
+from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from apps.autenticacion.permissions import TieneAccesoRecurso, IsAdminRole
+from .models import Usuario, Rol, UsuarioRol, Recurso, RecursoRol
+from .permissions import TieneAccesoRecurso, IsAdminRole
+from .serializers import (
+    RegisterSerializer, UsuarioSerializer, RolSerializer,
+    UsuarioRolSerializer, RecursoSerializer, RecursoRolSerializer,
+)
 
 # REGISTRO DE USUARIOS
 class RegisterView(generics.CreateAPIView):

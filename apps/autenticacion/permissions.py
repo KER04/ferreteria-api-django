@@ -3,7 +3,7 @@ from django.urls import resolve
 from apps.autenticacion.models import Recurso, RecursoRol, UsuarioRol
 
 class IsAdminRole(BasePermission):
-    ADMIN_NAMES = ['administrador', 'Administrador', 'Admin', 'admin']
+    ADMIN_NAMES = {'administrador', 'admin'}
 
     def has_permission(self, request, view):
         user = request.user
@@ -11,8 +11,7 @@ class IsAdminRole(BasePermission):
             return False
 
         roles = UsuarioRol.objects.filter(usuario=user).select_related('rol')
-        nombres_roles = [r.rol.nombre.lower() for r in roles]
-        return any(nombre in self.ADMIN_NAMES for nombre in nombres_roles)
+        return any(r.rol.nombre.lower() in self.ADMIN_NAMES for r in roles)
     
 class TieneAccesoRecurso(BasePermission):
     def has_permission(self, request, view):

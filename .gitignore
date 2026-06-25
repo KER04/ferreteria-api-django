@@ -1,0 +1,18 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Variables de entorno — NUNCA subir al repo
+.env
+
+# Django
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+
+# IDE
+.vscode/
+.idea/
+*.swp

@@ -1,5 +1,10 @@
 from django.urls import path
-from .views import *
+from .views import (
+    RegisterView, CookieLoginView, HelloFromCookieView, LogoutView,
+    RolListCreateView, RolRetrieveUpdateDestroyView, UsuarioRolCreateView,
+    RecursoListCreateView, RecursoRetrieveUpdateDestroyView,
+    RecursoRolCreateView, RecursosPorRolListView,
+)
 
 urlpatterns = [
     path('hello/', HelloFromCookieView.as_view(), name='hello'),

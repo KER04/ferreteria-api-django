@@ -31,12 +31,16 @@ class OperacionViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         p  = self.request.query_params
 
-        if tipo   := p.get("tipo_operacion"):
+        if tipo        := p.get("tipo_operacion"):
             qs = qs.filter(tipo_operacion=tipo)
-        if estado := p.get("estado"):
+        if estado      := p.get("estado"):
             qs = qs.filter(estado=estado)
-        if fecha  := p.get("fecha_operacion"):
+        if fecha       := p.get("fecha_operacion"):
             qs = qs.filter(fecha_operacion=fecha)
+        if fecha_desde := p.get("fecha_desde"):
+            qs = qs.filter(fecha_operacion__gte=fecha_desde)
+        if fecha_hasta := p.get("fecha_hasta"):
+            qs = qs.filter(fecha_operacion__lte=fecha_hasta)
 
         return qs
 
@@ -116,14 +120,34 @@ class OperacionViewSet(viewsets.ModelViewSet):
     # ── acción extra: cancelar operación ────────────
     @action(detail=True, methods=["post"], url_path="cancelar")
     def cancelar(self, request, pk=None):
+        from django.db import transaction
+        from apps.inventario.models import Producto
+
         operacion = self.get_object()
         if operacion.estado != Operacion.EstadoOperacion.ACTIVA:
             return Response(
                 {"detail": f"La operación ya está en estado '{operacion.estado}'."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        operacion.estado = Operacion.EstadoOperacion.CANCELADA
-        operacion.save()
+
+        with transaction.atomic():
+            for detalle in operacion.detalles.select_related("producto").select_for_update():
+                # Unidades que nunca se devolvieron (solo aplica a préstamos con devoluciones)
+                pendiente = detalle.cantidad - detalle.cantidad_devuelta
+                if pendiente <= 0:
+                    continue
+
+                producto = Producto.objects.select_for_update().get(pk=detalle.producto_id)
+                producto.prod_cantidad_disponible += pendiente
+
+                if operacion.tipo_operacion == Operacion.TipoOperacion.PRESTAMO:
+                    producto.prod_cantidad_prestada -= pendiente
+
+                producto.save()
+
+            operacion.estado = Operacion.EstadoOperacion.CANCELADA
+            operacion.save()
+
         return Response({"detail": f"Operación {operacion.codigo_operacion} cancelada."})
 
     # ── acción extra: finalizar operación ───────────
