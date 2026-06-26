@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -44,14 +45,14 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # CORS
+    # CORS debe ir lo más arriba posible
     'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'apps.autenticacion.middleware.JWTAuthCookieMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    # Promueve el token de la cookie a header Authorization antes de autenticar
+    'apps.autenticacion.middleware.JWTAuthCookieMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -80,11 +81,13 @@ WSGI_APPLICATION = 'mi_proyecto.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Configurable por entorno. En desarrollo cae a SQLite; en producción define
+# DATABASE_URL=postgres://usuario:password@host:5432/nombre_db en el .env.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}'),
+        conn_max_age=600,
+    )
 }
 
 
@@ -114,6 +117,18 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # Límite de peticiones — protege contra abuso y fuerza bruta
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': config('THROTTLE_ANON', default='100/hour'),
+        'user': config('THROTTLE_USER', default='1000/hour'),
+        'auth': config('THROTTLE_AUTH', default='10/min'),  # login / registro
+    },
+    # Convierte errores de validación de modelo (django) en 400 uniformes
+    'EXCEPTION_HANDLER': 'mi_proyecto.exceptions.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
@@ -155,12 +170,54 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'autenticacion.Usuario'
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200", #puerto de Angular
-]
+# Orígenes del frontend. En producción define en .env:
+#   CORS_ALLOWED_ORIGINS=https://miferreteria.com,https://www.miferreteria.com
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:4200',
+    cast=Csv(),
+)
 CORS_ALLOW_CREDENTIALS = True # Permite enviar cookies (como el token JWT) en solicitudes CORS
 
-# Si usas CSRF:
-CSRF_TRUSTED_ORIGINS = ["http://localhost:4200"]
+# Orígenes confiables para CSRF (normalmente los mismos que CORS).
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:4200',
+    cast=Csv(),
+)
+
+
+# ─────────────────────────────────────────────────────────────────
+# LOGGING — salida estructurada a consola (stdout)
+# En producción, el orquestador (Docker/systemd) recoge stdout.
+# ─────────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} [{levelname}] {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': config('LOG_LEVEL', default='INFO'),
+    },
+    'loggers': {
+        # Errores 500 y excepciones no controladas
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 

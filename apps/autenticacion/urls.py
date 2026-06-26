@@ -14,7 +14,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     
     path('roles/', RolListCreateView.as_view(), name='rol_list_create'),
-    path('roles/crear/', RolListCreateView.as_view(), name='rol_list_create'),
+    path('roles/crear/', RolListCreateView.as_view(), name='rol_create'),
     path('roles/<int:pk>/', RolRetrieveUpdateDestroyView.as_view(), name='rol_detail'),
     path('roles/asignar-rol/', UsuarioRolCreateView.as_view(), name='usuario_rol_create'),
 

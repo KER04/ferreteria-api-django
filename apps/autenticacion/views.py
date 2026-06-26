@@ -1,8 +1,9 @@
-# Importaciones: 
+# Importaciones:
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -17,6 +18,8 @@ from .serializers import (
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     queryset = Usuario.objects.all()
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -50,6 +53,9 @@ class UsuarioRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 # INICIAR SESION
 class CookieLoginView(APIView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
+
     def post(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
