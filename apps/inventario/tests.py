@@ -1,11 +1,11 @@
 from decimal import Decimal
 
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.autenticacion.models import Rol, UsuarioRol
-from apps.inventario.models import TipoCategoria, Marca, Prestamo, Producto
+from apps.inventario.models import Marca, Prestamo, Producto, TipoCategoria
 
 Usuario = get_user_model()
 

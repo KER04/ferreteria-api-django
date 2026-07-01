@@ -30,7 +30,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      # 4) Verifica la configuración del proyecto
+      # 4) Lint: estilo y errores comunes
+      - name: Lint (ruff)
+        run: ruff check .
+
+      # 5) Verifica la configuración del proyecto
       - name: Django check
         run: python manage.py check
 

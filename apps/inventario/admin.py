@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import TipoCategoria, Marca, Prestamo, Producto
+
+from .models import Marca, Prestamo, Producto, TipoCategoria
 
 
 @admin.register(TipoCategoria)

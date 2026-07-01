@@ -1,15 +1,23 @@
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework_simplejwt.views import TokenRefreshView
+from django.contrib import admin
+from django.urls import include, path
 from drf_spectacular.views import (
-    SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView,
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
 )
+from rest_framework_simplejwt.views import TokenRefreshView
+
 from apps.autenticacion.views import UsuarioListView, UsuarioRetrieveUpdateDestroyView
+
+from .health import HealthCheckView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Health check para monitoreo / orquestadores
+    path('health/', HealthCheckView.as_view(), name='health'),
 
     # Documentación de la API (OpenAPI / Swagger / Redoc)
     path('api/schema/',      SpectacularAPIView.as_view(),                          name='schema'),

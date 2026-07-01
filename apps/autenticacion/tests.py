@@ -1,6 +1,6 @@
-from django.test import TestCase
-from django.core.cache import cache
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.autenticacion.models import Rol, UsuarioRol
@@ -70,6 +70,13 @@ class AuthFlowTests(TestCase):
     def test_logout_sin_refresh_es_400(self):
         resp = self.client.post("/api/auth/logout/", {}, format="json")
         self.assertEqual(resp.status_code, 400)
+
+    # ── HEALTH CHECK ─────────────────────────
+    def test_health_check_publico_y_ok(self):
+        resp = self.client.get("/health/")   # sin autenticación
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "ok")
+        self.assertTrue(resp.data["database"])
 
     # ── REGISTRO ─────────────────────────────
     def test_register_crea_usuario_con_rol_usuario(self):

@@ -1,5 +1,5 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
-from django.urls import resolve
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+
 from apps.autenticacion.models import Recurso, RecursoRol, UsuarioRol
 
 ADMIN_NAMES = {'administrador', 'admin'}
@@ -28,12 +28,12 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return _es_admin(request.user)
-    
+
 class TieneAccesoRecurso(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
-        
+
         path = request.path
 
         try:

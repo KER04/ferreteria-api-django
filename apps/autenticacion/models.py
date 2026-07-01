@@ -1,7 +1,7 @@
 # Importaciones:
-from django.db import models
-from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
+from django.db import models
+
 
 #time stamped
 class TimeStampedModel(models.Model):
@@ -35,7 +35,7 @@ class Usuario(TimeStampedModel, AbstractUser):
 
     def __str__(self):
         return f"{self.username} - {self.first_name} {self.last_name}"
- 
+
 #usuario_rol
 class UsuarioRol(models.Model):
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='roles_asignados')
@@ -49,14 +49,14 @@ class UsuarioRol(models.Model):
 
     def __str__(self):
         return f"{self.usuario} → {self.rol}"
-    
+
 class Recurso(models.Model):
     nombre = models.CharField(max_length=100, unique=True, help_text="Nombre legible del recurso")
     url = models.CharField(max_length=255, unique=True, help_text="Ruta del backend sin dominio, ej: /api/entrenamientos/")
 
     def __str__(self):
         return f"{self.nombre} ({self.url})"
-    
+
 class RecursoRol(models.Model):
     rol = models.ForeignKey(Rol, on_delete=models.CASCADE, related_name="recursos")
     recurso = models.ForeignKey(Recurso, on_delete=models.CASCADE, related_name="roles")

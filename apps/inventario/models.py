@@ -1,5 +1,4 @@
 from django.db import models
-from django.core.exceptions import ValidationError
 
 
 # ─────────────────────────────────────────────
@@ -136,6 +135,9 @@ class Producto(models.Model):
         db_table            = "productos"
         verbose_name        = "Producto"
         verbose_name_plural = "Productos"
+        indexes = [
+            models.Index(fields=["prod_estado"]),
+        ]
 
     # ── propiedades calculadas ───────────────
     @property

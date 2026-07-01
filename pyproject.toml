@@ -1,0 +1,20 @@
+[tool.ruff]
+# Longitud de línea holgada (el código usa comentarios alineados)
+line-length = 120
+target-version = "py313"
+exclude = [
+    "venv",
+    "*/migrations/*",
+]
+
+[tool.ruff.lint]
+# E/W: estilo (pycodestyle) · F: errores reales (pyflakes) · I: orden de imports
+select = ["E", "W", "F", "I"]
+ignore = [
+    "E501",   # línea muy larga (el estilo alinea comentarios)
+    "E741",   # nombres de variable ambiguos (l, I, O)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# En los tests es común importar cosas "sin usar" a propósito
+"*/tests.py" = ["F401"]

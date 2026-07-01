@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import TipoCategoria, Marca, Prestamo, Producto
+
+from .models import Marca, Prestamo, Producto, TipoCategoria
 
 
 class TipoCategoriaSerializer(serializers.ModelSerializer):

@@ -1,7 +1,8 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema_field
-from .models import Rol, UsuarioRol, Recurso, RecursoRol
+from rest_framework import serializers
+
+from .models import Recurso, RecursoRol, Rol, UsuarioRol
 
 Usuario = get_user_model()
 

@@ -1,6 +1,6 @@
-from django.db import models
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models
+
 from apps.autenticacion.models import Usuario
 from apps.inventario.models import Producto
 
@@ -38,6 +38,12 @@ class Operacion(models.Model):
         verbose_name        = "Operación"
         verbose_name_plural = "Operaciones"
         ordering            = ["-fecha_operacion", "-id"]
+        indexes = [
+            # Filtros frecuentes por estado y tipo, y el reporte de vencidos
+            models.Index(fields=["estado"]),
+            models.Index(fields=["tipo_operacion", "estado"]),
+            models.Index(fields=["fecha_devolucion"]),
+        ]
 
     def _generar_codigo(self) -> str:
         prefijo = "VEN" if self.tipo_operacion == self.TipoOperacion.VENTA else "PRE"
@@ -129,24 +135,9 @@ class DetalleOperacion(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        # Solo deriva un campo propio; el ajuste de stock vive en services.py
         self.subtotal = self.cantidad * self.precio_unitario
-        es_nuevo = self._state.adding
-
-        if es_nuevo:
-            self.full_clean()
-            with transaction.atomic():
-                producto = Producto.objects.select_for_update().get(pk=self.producto_id)
-
-                if self.operacion.tipo_operacion == Operacion.TipoOperacion.VENTA:
-                    producto.prod_cantidad_disponible -= self.cantidad
-                else:
-                    producto.prod_cantidad_disponible -= self.cantidad
-                    producto.prod_cantidad_prestada   += self.cantidad
-
-                producto.save()
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.operacion.codigo_operacion} → {self.producto.prod_nombre} x{self.cantidad}"
@@ -211,42 +202,8 @@ class Devolucion(models.Model):
                 )}
             )
 
-    def save(self, *args, **kwargs):
-        if not self._state.adding:
-            # Las devoluciones ya guardadas son inmutables
-            super().save(*args, **kwargs)
-            return
-
-        self.full_clean()
-
-        with transaction.atomic():
-            # Lock del producto para evitar race conditions
-            producto = Producto.objects.select_for_update().get(
-                pk=self.detalle.producto_id
-            )
-
-            # 1) La unidad deja de estar prestada en todos los casos
-            producto.prod_cantidad_prestada -= self.cantidad_devuelta
-
-            # 2) Según el estado en que vuelve, decidir su destino
-            if self.estado_devolucion == self.EstadoDevolucion.BUENO:
-                # Buen estado → vuelve al stock vendible
-                producto.prod_cantidad_disponible += self.cantidad_devuelta
-            elif self.estado_devolucion == self.EstadoDevolucion.DAÑADO:
-                # Dañado → NO es vendible: entra a mantenimiento para su reparación
-                producto.prod_cantidad_en_mantenimiento += self.cantidad_devuelta
-            elif self.estado_devolucion == self.EstadoDevolucion.PERDIDO:
-                # Perdido → pérdida total: no vuelve a ningún contador.
-                # El stock total del producto disminuye.
-                pass
-
-            producto.save()
-
-            # 3) Acumular en el detalle
-            self.detalle.cantidad_devuelta += self.cantidad_devuelta
-            self.detalle.save(update_fields=["cantidad_devuelta"])
-
-            super().save(*args, **kwargs)
+    # El ajuste de stock y el acumulado en el detalle viven en services.py
+    # (registrar_devolucion). El modelo solo guarda datos y valida en clean().
 
     def __str__(self):
         return (

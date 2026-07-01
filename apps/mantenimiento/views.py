@@ -1,19 +1,19 @@
-from django.utils import timezone
-from rest_framework import viewsets, status, filters
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from apps.autenticacion.permissions import IsAdminOrReadOnly
 
-from .models import Costo, TipoMantenimiento, Mantenimiento, SalidaMantenimiento
+from . import services
+from .models import Costo, Mantenimiento, SalidaMantenimiento, TipoMantenimiento
 from .serializers import (
     CostoSerializer,
-    TipoMantenimientoSerializer,
-    MantenimientoWriteSerializer,
     MantenimientoReadSerializer,
-    SalidaWriteSerializer,
+    MantenimientoWriteSerializer,
     SalidaReadSerializer,
+    SalidaWriteSerializer,
+    TipoMantenimientoSerializer,
 )
 
 
@@ -124,7 +124,15 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
             context=self.get_serializer_context(),
         )
         ser.is_valid(raise_exception=True)
-        mant = ser.save()
+        v = ser.validated_data
+        mant = services.ingresar_mantenimiento(
+            producto=v["producto"],
+            tipo_mantenimiento=v["tipo_mantenimiento"],
+            cantidad_ingresada=v["cantidad_ingresada"],
+            usuario=v["usuario"],
+            mant_descripcion=v.get("mant_descripcion"),
+            costo=v.get("costo"),
+        )
         out  = MantenimientoReadSerializer(
             mant, context=self.get_serializer_context()
         )
@@ -186,7 +194,14 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
         data = {**request.data, "mantenimiento": mant.pk}
         ser  = SalidaWriteSerializer(data=data)
         ser.is_valid(raise_exception=True)
-        salida = ser.save()
+        v = ser.validated_data
+        services.registrar_salida(
+            mantenimiento=mant,
+            cantidad_recuperada=v["cantidad_recuperada"],
+            cantidad_baja=v.get("cantidad_baja", 0),
+            observaciones=v.get("observaciones"),
+            costo=v.get("costo"),
+        )
 
         out = MantenimientoReadSerializer(
             Mantenimiento.objects.get(pk=mant.pk),
@@ -197,9 +212,6 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
     # ── acción: cancelar (devuelve el stock retenido) ──
     @action(detail=True, methods=["post"], url_path="cancelar")
     def cancelar(self, request, pk=None):
-        from django.db import transaction
-        from apps.inventario.models import Producto
-
         mant = self.get_object()
         if mant.estado != Mantenimiento.Estado.EN_PROCESO:
             return Response(
@@ -208,23 +220,7 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        with transaction.atomic():
-            mant     = Mantenimiento.objects.select_for_update().get(pk=mant.pk)
-            producto = Producto.objects.select_for_update().get(pk=mant.producto_id)
-
-            # Devolver al stock las unidades aún en mantenimiento
-            pendiente = mant.cantidad_pendiente   # ingresada - recuperada - baja
-            producto.prod_cantidad_en_mantenimiento -= pendiente
-            producto.prod_cantidad_disponible       += pendiente
-
-            # Si el producto había quedado marcado en mantenimiento, liberarlo
-            if producto.prod_estado == Producto.Estado.MANTENIMIENTO:
-                producto.prod_estado = Producto.Estado.DISPONIBLE
-            producto.save()
-
-            mant.estado       = Mantenimiento.Estado.CANCELADO
-            mant.fecha_salida = timezone.now().date()
-            mant.save(update_fields=["estado", "fecha_salida"])
+        services.cancelar_mantenimiento(mant)
 
         out = MantenimientoReadSerializer(
             Mantenimiento.objects.get(pk=mant.pk),

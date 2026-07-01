@@ -1,15 +1,16 @@
 from django.utils import timezone
-from rest_framework import viewsets, status, filters
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from .models import Operacion, DetalleOperacion, Devolucion
+from . import services
+from .models import Devolucion, Operacion
 from .serializers import (
-    OperacionWriteSerializer,
-    OperacionReadSerializer,
-    DevolucionWriteSerializer,
     DevolucionReadSerializer,
+    DevolucionWriteSerializer,
+    OperacionReadSerializer,
+    OperacionWriteSerializer,
 )
 
 
@@ -121,34 +122,13 @@ class OperacionViewSet(viewsets.ModelViewSet):
     # ── acción extra: cancelar operación ────────────
     @action(detail=True, methods=["post"], url_path="cancelar")
     def cancelar(self, request, pk=None):
-        from django.db import transaction
-        from apps.inventario.models import Producto
-
         operacion = self.get_object()
         if operacion.estado != Operacion.EstadoOperacion.ACTIVA:
             return Response(
                 {"detail": f"La operación ya está en estado '{operacion.estado}'."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        with transaction.atomic():
-            for detalle in operacion.detalles.select_related("producto").select_for_update():
-                # Unidades que nunca se devolvieron (solo aplica a préstamos con devoluciones)
-                pendiente = detalle.cantidad - detalle.cantidad_devuelta
-                if pendiente <= 0:
-                    continue
-
-                producto = Producto.objects.select_for_update().get(pk=detalle.producto_id)
-                producto.prod_cantidad_disponible += pendiente
-
-                if operacion.tipo_operacion == Operacion.TipoOperacion.PRESTAMO:
-                    producto.prod_cantidad_prestada -= pendiente
-
-                producto.save()
-
-            operacion.estado = Operacion.EstadoOperacion.CANCELADA
-            operacion.save()
-
+        services.cancelar_operacion(operacion)
         return Response({"detail": f"Operación {operacion.codigo_operacion} cancelada."})
 
     # ── acción extra: finalizar operación ───────────
@@ -224,7 +204,13 @@ class DevolucionViewSet(viewsets.ModelViewSet):
             data=request.data, context=self.get_serializer_context()
         )
         ser.is_valid(raise_exception=True)
-        devolucion = ser.save()
+        v = ser.validated_data
+        devolucion = services.registrar_devolucion(
+            detalle=v["detalle"],
+            cantidad_devuelta=v["cantidad_devuelta"],
+            estado_devolucion=v.get("estado_devolucion", Devolucion.EstadoDevolucion.BUENO),
+            observaciones=v.get("observaciones"),
+        )
         out = DevolucionReadSerializer(devolucion)
         return Response(out.data, status=status.HTTP_201_CREATED)
 

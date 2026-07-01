@@ -1,19 +1,20 @@
 from django.contrib import admin
-from .models import Costo, TipoMantenimiento, Mantenimiento, SalidaMantenimiento
- 
- 
+
+from .models import Costo, Mantenimiento, SalidaMantenimiento, TipoMantenimiento
+
+
 @admin.register(Costo)
 class CostoAdmin(admin.ModelAdmin):
     list_display  = ("cost_id", "cost_total", "cost_partes_afectadas", "cost_fecha_pago")
     ordering      = ("-cost_id",)
- 
- 
+
+
 @admin.register(TipoMantenimiento)
 class TipoMantenimientoAdmin(admin.ModelAdmin):
     list_display  = ("tima_id", "tima_nombre")
     search_fields = ("tima_nombre",)
- 
- 
+
+
 class SalidaInline(admin.StackedInline):
     model       = SalidaMantenimiento
     extra       = 0
@@ -22,8 +23,8 @@ class SalidaInline(admin.StackedInline):
         "cantidad_recuperada", "cantidad_baja",
         "observaciones", "costo", "fecha_salida",
     )
- 
- 
+
+
 @admin.register(Mantenimiento)
 class MantenimientoAdmin(admin.ModelAdmin):
     list_display  = (
@@ -38,8 +39,8 @@ class MantenimientoAdmin(admin.ModelAdmin):
         "cantidad_recuperada", "cantidad_baja", "fecha_salida",
     )
     inlines       = [SalidaInline]
- 
- 
+
+
 @admin.register(SalidaMantenimiento)
 class SalidaMantenimientoAdmin(admin.ModelAdmin):
     list_display  = (

@@ -1,12 +1,15 @@
 from decimal import Decimal
 
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.inventario.models import TipoCategoria, Marca, Prestamo, Producto
+from apps.inventario.models import Marca, Prestamo, Producto, TipoCategoria
+from apps.mantenimiento import services
 from apps.mantenimiento.models import (
-    TipoMantenimiento, Mantenimiento, SalidaMantenimiento,
+    Mantenimiento,
+    SalidaMantenimiento,
+    TipoMantenimiento,
 )
 
 Usuario = get_user_model()
@@ -33,7 +36,7 @@ class MantenimientoStockTests(TestCase):
         self.tipo     = TipoMantenimiento.objects.create(tima_nombre="Correctivo")
 
     def _ingresar(self, cantidad):
-        return Mantenimiento.objects.create(
+        return services.ingresar_mantenimiento(
             producto=self.producto,
             tipo_mantenimiento=self.tipo,
             cantidad_ingresada=cantidad,
@@ -48,7 +51,7 @@ class MantenimientoStockTests(TestCase):
 
     def test_salida_recupera_y_da_de_baja(self):
         mant = self._ingresar(3)
-        SalidaMantenimiento.objects.create(
+        services.registrar_salida(
             mantenimiento=mant, cantidad_recuperada=2, cantidad_baja=1,
         )
         self.producto.refresh_from_db()
@@ -68,7 +71,7 @@ class CancelarMantenimientoTests(TestCase):
         self.client.force_authenticate(user=self.usuario)
 
     def test_cancelar_devuelve_stock(self):
-        mant = Mantenimiento.objects.create(
+        mant = services.ingresar_mantenimiento(
             producto=self.producto,
             tipo_mantenimiento=self.tipo,
             cantidad_ingresada=4,

@@ -1,19 +1,26 @@
 # Importaciones:
-from rest_framework import generics, status, serializers as drf_serializers
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.throttling import ScopedRateThrottle
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
-from drf_spectacular.utils import extend_schema, inline_serializer
 from django.contrib.auth import authenticate
-from .models import Usuario, Rol, UsuarioRol, Recurso, RecursoRol
-from .permissions import TieneAccesoRecurso, IsAdminRole
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, status
+from rest_framework import serializers as drf_serializers
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .models import Recurso, RecursoRol, Rol, Usuario, UsuarioRol
+from .permissions import IsAdminRole
 from .serializers import (
-    RegisterSerializer, UsuarioSerializer, RolSerializer,
-    UsuarioRolSerializer, RecursoSerializer, RecursoRolSerializer,
+    RecursoRolSerializer,
+    RecursoSerializer,
+    RegisterSerializer,
+    RolSerializer,
+    UsuarioRolSerializer,
+    UsuarioSerializer,
 )
+
 
 # REGISTRO DE USUARIOS
 # NOTA: hoy es público. Para un sistema interno, considera cambiar a
@@ -143,7 +150,7 @@ class LogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response({"message": "Sesión cerrada. El refresh token fue invalidado."})
-    
+
 # ROLES
 class RolListCreateView(generics.ListCreateAPIView):
     queryset = Rol.objects.all()

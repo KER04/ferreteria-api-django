@@ -1,9 +1,17 @@
 from django.urls import path
+
 from .views import (
-    RegisterView, LoginView, MeView, LogoutView,
-    RolListCreateView, RolRetrieveUpdateDestroyView, UsuarioRolCreateView,
-    RecursoListCreateView, RecursoRetrieveUpdateDestroyView,
-    RecursoRolCreateView, RecursosPorRolListView,
+    LoginView,
+    LogoutView,
+    MeView,
+    RecursoListCreateView,
+    RecursoRetrieveUpdateDestroyView,
+    RecursoRolCreateView,
+    RecursosPorRolListView,
+    RegisterView,
+    RolListCreateView,
+    RolRetrieveUpdateDestroyView,
+    UsuarioRolCreateView,
 )
 
 urlpatterns = [
@@ -13,7 +21,7 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('register/', RegisterView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    
+
     path('roles/', RolListCreateView.as_view(), name='rol_list_create'),
     path('roles/crear/', RolListCreateView.as_view(), name='rol_create'),
     path('roles/<int:pk>/', RolRetrieveUpdateDestroyView.as_view(), name='rol_detail'),

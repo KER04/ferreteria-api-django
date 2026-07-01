@@ -1,22 +1,23 @@
 from decimal import Decimal
-from django.db.models import F, Sum, Count, DecimalField
+
+from django.db.models import Count, DecimalField, F, Sum
 from django.db.models.functions import Coalesce
-from rest_framework import viewsets, status, filters, serializers
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import filters, serializers, status, viewsets
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.autenticacion.permissions import IsAdminOrReadOnly
 
-from .models import TipoCategoria, Marca, Prestamo, Producto
+from .models import Marca, Prestamo, Producto, TipoCategoria
 from .serializers import (
-    TipoCategoriaSerializer,
     MarcaSerializer,
     PrestamoSerializer,
-    ProductoSerializer,
     ProductoReadSerializer,
+    ProductoSerializer,
+    TipoCategoriaSerializer,
 )
 
 

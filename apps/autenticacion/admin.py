@@ -1,7 +1,6 @@
 from django.contrib import admin
-from django.contrib.auth.models import User
-from django.contrib.auth.admin import UserAdmin
-from .models import *
+
+from .models import Recurso, RecursoRol, Rol, Usuario, UsuarioRol
 
 admin.site.register(Rol)
 admin.site.register(Usuario)

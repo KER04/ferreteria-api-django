@@ -1,14 +1,15 @@
-from decimal import Decimal
 from datetime import timedelta
+from decimal import Decimal
 
-from django.test import TestCase
-from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.inventario.models import TipoCategoria, Marca, Prestamo, Producto
-from apps.operaciones.models import Operacion, DetalleOperacion, Devolucion
+from apps.inventario.models import Marca, Prestamo, Producto, TipoCategoria
+from apps.operaciones import services
+from apps.operaciones.models import DetalleOperacion, Devolucion, Operacion
 
 Usuario = get_user_model()
 
@@ -33,47 +34,39 @@ class StockOperacionesTests(TestCase):
         self.usuario  = Usuario.objects.create_user(username="empleado", password="x")
         self.producto = crear_producto(disponible=10)
 
-    def _operacion(self, tipo):
-        return Operacion.objects.create(tipo_operacion=tipo, usuario=self.usuario)
+    def _crear_op(self, tipo, cantidad, precio="0.00"):
+        return services.crear_operacion(
+            tipo_operacion=tipo, usuario=self.usuario,
+            detalles=[{
+                "producto": self.producto,
+                "cantidad": cantidad,
+                "precio_unitario": Decimal(precio),
+            }],
+        )
 
     # ── ventas ───────────────────────────────
     def test_venta_descuenta_disponible(self):
-        op = self._operacion(Operacion.TipoOperacion.VENTA)
-        DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=3, precio_unitario=Decimal("100.00"),
-        )
+        self._crear_op(Operacion.TipoOperacion.VENTA, 3, "100.00")
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.prod_cantidad_disponible, 7)
         self.assertEqual(self.producto.prod_cantidad_prestada, 0)
 
     def test_stock_insuficiente_lanza_error(self):
-        op = self._operacion(Operacion.TipoOperacion.VENTA)
         with self.assertRaises(ValidationError):
-            DetalleOperacion.objects.create(
-                operacion=op, producto=self.producto,
-                cantidad=999, precio_unitario=Decimal("100.00"),
-            )
+            self._crear_op(Operacion.TipoOperacion.VENTA, 999, "100.00")
 
     # ── préstamos ────────────────────────────
     def test_prestamo_mueve_a_prestada(self):
-        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
-        DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
+        self._crear_op(Operacion.TipoOperacion.PRESTAMO, 4)
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.prod_cantidad_disponible, 6)
         self.assertEqual(self.producto.prod_cantidad_prestada, 4)
 
     # ── devoluciones ─────────────────────────
     def test_devolucion_parcial_ajusta_stock(self):
-        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
-        det = DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
-        Devolucion.objects.create(detalle=det, cantidad_devuelta=2)
+        op  = self._crear_op(Operacion.TipoOperacion.PRESTAMO, 4)
+        det = op.detalles.first()
+        services.registrar_devolucion(detalle=det, cantidad_devuelta=2)
 
         self.producto.refresh_from_db()
         det.refresh_from_db()
@@ -83,21 +76,15 @@ class StockOperacionesTests(TestCase):
         self.assertEqual(det.cantidad_pendiente, 2)
 
     def test_devolucion_no_excede_pendiente(self):
-        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
-        det = DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
+        op  = self._crear_op(Operacion.TipoOperacion.PRESTAMO, 4)
+        det = op.detalles.first()
         with self.assertRaises(ValidationError):
-            Devolucion.objects.create(detalle=det, cantidad_devuelta=5)
+            services.registrar_devolucion(detalle=det, cantidad_devuelta=5)
 
     def test_devolucion_danada_va_a_mantenimiento(self):
-        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
-        det = DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
-        Devolucion.objects.create(
+        op  = self._crear_op(Operacion.TipoOperacion.PRESTAMO, 4)
+        det = op.detalles.first()
+        services.registrar_devolucion(
             detalle=det, cantidad_devuelta=2,
             estado_devolucion=Devolucion.EstadoDevolucion.DAÑADO,
         )
@@ -108,13 +95,10 @@ class StockOperacionesTests(TestCase):
         self.assertEqual(self.producto.prod_cantidad_prestada, 2)
 
     def test_devolucion_perdida_reduce_total(self):
-        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
-        det = DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
+        op  = self._crear_op(Operacion.TipoOperacion.PRESTAMO, 4)
+        det = op.detalles.first()
         total_antes = self.producto.prod_cantidad_total
-        Devolucion.objects.create(
+        services.registrar_devolucion(
             detalle=det, cantidad_devuelta=1,
             estado_devolucion=Devolucion.EstadoDevolucion.PERDIDO,
         )
@@ -132,12 +116,10 @@ class CancelarOperacionTests(TestCase):
         self.client.force_authenticate(user=self.usuario)
 
     def test_cancelar_venta_revierte_stock(self):
-        op = Operacion.objects.create(
+        op = services.crear_operacion(
             tipo_operacion=Operacion.TipoOperacion.VENTA, usuario=self.usuario,
-        )
-        DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=3, precio_unitario=Decimal("100.00"),
+            detalles=[{"producto": self.producto, "cantidad": 3,
+                       "precio_unitario": Decimal("100.00")}],
         )
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.prod_cantidad_disponible, 7)
@@ -151,14 +133,13 @@ class CancelarOperacionTests(TestCase):
         self.assertEqual(self.producto.prod_cantidad_disponible, 10)
 
     def test_cancelar_prestamo_con_devolucion_parcial(self):
-        op = Operacion.objects.create(
+        op = services.crear_operacion(
             tipo_operacion=Operacion.TipoOperacion.PRESTAMO, usuario=self.usuario,
+            detalles=[{"producto": self.producto, "cantidad": 4,
+                       "precio_unitario": Decimal("0.00")}],
         )
-        det = DetalleOperacion.objects.create(
-            operacion=op, producto=self.producto,
-            cantidad=4, precio_unitario=Decimal("0.00"),
-        )
-        Devolucion.objects.create(detalle=det, cantidad_devuelta=1)
+        det = op.detalles.first()
+        services.registrar_devolucion(detalle=det, cantidad_devuelta=1)
 
         # Cancela: solo deben volver las 3 unidades aún prestadas
         resp = self.client.post(f"/api/operaciones/operaciones/{op.id}/cancelar/")

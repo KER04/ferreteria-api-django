@@ -1,8 +1,10 @@
 from decimal import Decimal
-from rest_framework import serializers
-from .models import Operacion, DetalleOperacion, Devolucion
+
 from django.db import models
 from django.utils import timezone
+from rest_framework import serializers
+
+from .models import DetalleOperacion, Devolucion, Operacion
 
 
 # ─────────────────────────────────────────────
@@ -115,11 +117,16 @@ class OperacionWriteSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        detalles_data = validated_data.pop("detalles")
-        operacion     = Operacion.objects.create(**validated_data)
-        for item in detalles_data:
-            DetalleOperacion.objects.create(operacion=operacion, **item)
-        return operacion
+        from . import services
+        detalles = validated_data.pop("detalles")
+        return services.crear_operacion(
+            tipo_operacion=validated_data["tipo_operacion"],
+            usuario=validated_data["usuario"],
+            cliente=validated_data.get("cliente"),
+            fecha_devolucion=validated_data.get("fecha_devolucion"),
+            observaciones=validated_data.get("observaciones"),
+            detalles=detalles,
+        )
 
     def update(self, instance, validated_data):
         # El dueño original NUNCA cambia al editar la cabecera.
@@ -151,7 +158,7 @@ class OperacionReadSerializer(serializers.ModelSerializer):
 # DEVOLUCIÓN — escritura (soporta parciales)
 # ─────────────────────────────────────────────
 class DevolucionWriteSerializer(serializers.ModelSerializer):
-    
+
     detalle = serializers.PrimaryKeyRelatedField(
         queryset=DetalleOperacion.objects.filter(
             operacion__tipo_operacion="prestamo"
@@ -159,7 +166,7 @@ class DevolucionWriteSerializer(serializers.ModelSerializer):
             cantidad_devuelta=models.F("cantidad")
         )
     )
-    
+
     class Meta:
         model  = Devolucion
         fields = [

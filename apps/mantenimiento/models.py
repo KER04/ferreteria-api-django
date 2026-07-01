@@ -1,7 +1,8 @@
-from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from apps.inventario.models import Producto
+from django.db import models
+
 from apps.autenticacion.models import Usuario
+from apps.inventario.models import Producto
 
 
 # ─────────────────────────────────────────────
@@ -131,6 +132,9 @@ class Mantenimiento(models.Model):
         verbose_name        = "Mantenimiento"
         verbose_name_plural = "Mantenimientos"
         ordering            = ["-fecha_ingreso", "-mant_id"]
+        indexes = [
+            models.Index(fields=["estado"]),
+        ]
 
     # ── propiedades calculadas ────────────────
     @property
@@ -155,24 +159,8 @@ class Mantenimiento(models.Model):
                     )}
                 )
 
-    def save(self, *args, **kwargs):
-        es_nuevo = self._state.adding
-        if es_nuevo:
-            self.full_clean()
-            with transaction.atomic():
-                producto = Producto.objects.select_for_update().get(
-                    pk=self.producto_id
-                )
-                # Entrada: restar del disponible
-                producto.prod_cantidad_disponible    -= self.cantidad_ingresada
-                producto.prod_cantidad_en_mantenimiento += self.cantidad_ingresada
-                # Si no queda nada disponible, marcar estado
-                if producto.prod_cantidad_disponible == 0:
-                    producto.prod_estado = Producto.Estado.MANTENIMIENTO
-                producto.save()
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+    # El ajuste de stock en la entrada vive en services.ingresar_mantenimiento.
+    # El modelo solo guarda datos y valida en clean().
 
     def __str__(self):
         return (
@@ -243,41 +231,8 @@ class SalidaMantenimiento(models.Model):
                 f"ingresadas ({mant.cantidad_ingresada})."
             )
 
-    def save(self, *args, **kwargs):
-        if not self._state.adding:
-            super().save(*args, **kwargs)
-            return
-
-        self.full_clean()
-
-        with transaction.atomic():
-            mant     = Mantenimiento.objects.select_for_update().get(pk=self.mantenimiento_id)
-            producto = Producto.objects.select_for_update().get(pk=mant.producto_id)
-
-            # 1) Actualizar stock
-            producto.prod_cantidad_en_mantenimiento -= mant.cantidad_ingresada
-            producto.prod_cantidad_disponible       += self.cantidad_recuperada
-            # cantidad_baja se pierde — no vuelve al stock
-
-            # 2) Actualizar estado del producto
-            if producto.prod_cantidad_disponible == 0:
-                producto.prod_estado = Producto.Estado.AGOTADO
-            elif producto.prod_estado == Producto.Estado.MANTENIMIENTO:
-                producto.prod_estado = Producto.Estado.DISPONIBLE
-
-            producto.save()
-
-            # 3) Actualizar el mantenimiento
-            mant.estado              = Mantenimiento.Estado.FINALIZADO
-            mant.cantidad_recuperada = self.cantidad_recuperada
-            mant.cantidad_baja       = self.cantidad_baja
-            mant.fecha_salida        = self.fecha_salida if hasattr(self, 'fecha_salida') else None
-            mant.save(update_fields=[
-                "estado", "cantidad_recuperada",
-                "cantidad_baja", "fecha_salida",
-            ])
-
-            super().save(*args, **kwargs)
+    # El ajuste de stock y el cierre del mantenimiento viven en
+    # services.registrar_salida. El modelo solo guarda datos y valida en clean().
 
     def __str__(self):
         return (
