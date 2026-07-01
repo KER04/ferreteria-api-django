@@ -225,24 +225,20 @@ class Devolucion(models.Model):
                 pk=self.detalle.producto_id
             )
 
-            # 1) Ajustar stock
-            producto.prod_cantidad_disponible += self.cantidad_devuelta
-            producto.prod_cantidad_prestada   -= self.cantidad_devuelta
+            # 1) La unidad deja de estar prestada en todos los casos
+            producto.prod_cantidad_prestada -= self.cantidad_devuelta
 
-            # 2) Actualizar estado del producto
-            #    IMPORTANTE: se fija ANTES de llamar producto.save()
-            #    para que _calcular_estado() lo respete correctamente.
-            if self.estado_devolucion == self.EstadoDevolucion.DAÑADO:
-                # Marcar el producto como dañado — _calcular_estado lo preservará
-                # porque la lógica solo fuerza Agotado cuando disponible == 0
-                # y solo revierte Agotado → Disponible, no toca Dañado.
-                producto.prod_estado = Producto.Estado.DAÑADO
+            # 2) Según el estado en que vuelve, decidir su destino
+            if self.estado_devolucion == self.EstadoDevolucion.BUENO:
+                # Buen estado → vuelve al stock vendible
+                producto.prod_cantidad_disponible += self.cantidad_devuelta
+            elif self.estado_devolucion == self.EstadoDevolucion.DAÑADO:
+                # Dañado → NO es vendible: entra a mantenimiento para su reparación
+                producto.prod_cantidad_en_mantenimiento += self.cantidad_devuelta
             elif self.estado_devolucion == self.EstadoDevolucion.PERDIDO:
-                # Perdido: la unidad no vuelve al stock (ya no restamos prestada
-                # pero tampoco sumamos disponible); ajuste manual.
-                # Revertimos la suma que hicimos arriba.
-                producto.prod_cantidad_disponible -= self.cantidad_devuelta
-                # El producto queda con menos stock total.
+                # Perdido → pérdida total: no vuelve a ningún contador.
+                # El stock total del producto disminuye.
+                pass
 
             producto.save()
 

@@ -2,6 +2,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from .models import Operacion, DetalleOperacion, Devolucion
 from django.db import models
+from django.utils import timezone
 
 
 # ─────────────────────────────────────────────
@@ -102,6 +103,15 @@ class OperacionWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"fecha_devolucion": "Las ventas no tienen fecha de devolución."}
             )
+
+        # En préstamos, la fecha de devolución no puede ser anterior a hoy
+        fecha_dev = attrs.get("fecha_devolucion")
+        if tipo == Operacion.TipoOperacion.PRESTAMO and fecha_dev:
+            if fecha_dev < timezone.now().date():
+                raise serializers.ValidationError(
+                    {"fecha_devolucion": "La fecha de devolución no puede estar en el pasado."}
+                )
+
         return attrs
 
     def create(self, validated_data):

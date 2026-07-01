@@ -89,6 +89,38 @@ class StockOperacionesTests(TestCase):
         with self.assertRaises(ValidationError):
             Devolucion.objects.create(detalle=det, cantidad_devuelta=5)
 
+    def test_devolucion_danada_va_a_mantenimiento(self):
+        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
+        det = DetalleOperacion.objects.create(
+            operacion=op, producto=self.producto,
+            cantidad=4, precio_unitario=Decimal("0.00"),
+        )
+        Devolucion.objects.create(
+            detalle=det, cantidad_devuelta=2,
+            estado_devolucion=Devolucion.EstadoDevolucion.DAÑADO,
+        )
+        self.producto.refresh_from_db()
+        # Las 2 dañadas NO vuelven a disponible; van a mantenimiento
+        self.assertEqual(self.producto.prod_cantidad_disponible, 6)   # 10 - 4 prestadas
+        self.assertEqual(self.producto.prod_cantidad_en_mantenimiento, 2)
+        self.assertEqual(self.producto.prod_cantidad_prestada, 2)
+
+    def test_devolucion_perdida_reduce_total(self):
+        op = self._operacion(Operacion.TipoOperacion.PRESTAMO)
+        det = DetalleOperacion.objects.create(
+            operacion=op, producto=self.producto,
+            cantidad=4, precio_unitario=Decimal("0.00"),
+        )
+        total_antes = self.producto.prod_cantidad_total
+        Devolucion.objects.create(
+            detalle=det, cantidad_devuelta=1,
+            estado_devolucion=Devolucion.EstadoDevolucion.PERDIDO,
+        )
+        self.producto.refresh_from_db()
+        # La perdida no vuelve a ningún contador; el total baja en 1
+        self.assertEqual(self.producto.prod_cantidad_total, total_antes - 1)
+        self.assertEqual(self.producto.prod_cantidad_prestada, 3)
+
 
 class CancelarOperacionTests(TestCase):
     def setUp(self):

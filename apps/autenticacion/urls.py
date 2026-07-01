@@ -1,15 +1,16 @@
 from django.urls import path
 from .views import (
-    RegisterView, CookieLoginView, HelloFromCookieView, LogoutView,
+    RegisterView, LoginView, MeView, LogoutView,
     RolListCreateView, RolRetrieveUpdateDestroyView, UsuarioRolCreateView,
     RecursoListCreateView, RecursoRetrieveUpdateDestroyView,
     RecursoRolCreateView, RecursosPorRolListView,
 )
 
 urlpatterns = [
-    path('hello/', HelloFromCookieView.as_view(), name='hello'),
-    
-    path('login/', CookieLoginView.as_view(), name='login_cookie'),
+    path('me/', MeView.as_view(), name='me'),
+    path('hello/', MeView.as_view(), name='hello'),  # alias retrocompatible
+
+    path('login/', LoginView.as_view(), name='login'),
     path('register/', RegisterView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
     

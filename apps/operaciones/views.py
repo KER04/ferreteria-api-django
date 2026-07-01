@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -162,6 +163,25 @@ class OperacionViewSet(viewsets.ModelViewSet):
         operacion.estado = Operacion.EstadoOperacion.FINALIZADA
         operacion.save()
         return Response({"detail": f"Operación {operacion.codigo_operacion} finalizada."})
+
+    # ── acción extra: préstamos vencidos ────────────
+    @action(detail=False, methods=["get"], url_path="vencidos")
+    def vencidos(self, request):
+        """
+        Préstamos activos cuya fecha de devolución ya pasó.
+        GET /api/operaciones/operaciones/vencidos/
+        """
+        hoy = timezone.now().date()
+        qs = self.get_queryset().filter(
+            tipo_operacion=Operacion.TipoOperacion.PRESTAMO,
+            estado=Operacion.EstadoOperacion.ACTIVA,
+            fecha_devolucion__lt=hoy,
+        )
+        page = self.paginate_queryset(qs)
+        ser  = OperacionReadSerializer(
+            page or qs, many=True, context=self.get_serializer_context()
+        )
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
 
 
 # ─────────────────────────────────────────────

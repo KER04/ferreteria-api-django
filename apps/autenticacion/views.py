@@ -2,9 +2,8 @@
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.throttling import ScopedRateThrottle
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from .models import Usuario, Rol, UsuarioRol, Recurso, RecursoRol
@@ -15,9 +14,12 @@ from .serializers import (
 )
 
 # REGISTRO DE USUARIOS
+# NOTA: hoy es público. Para un sistema interno, considera cambiar a
+# [IsAuthenticated, IsAdminRole] para que solo un admin cree empleados.
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     queryset = Usuario.objects.all()
+    permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth'
 
@@ -51,8 +53,9 @@ class UsuarioRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
 
-# INICIAR SESION
-class CookieLoginView(APIView):
+# INICIAR SESION — devuelve los tokens en el body (auth por header Bearer)
+class LoginView(APIView):
+    permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth'
 
@@ -65,11 +68,10 @@ class CookieLoginView(APIView):
             return Response({"detail": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
 
-        response = Response({
-            "message": "Autenticación con cookies exitosa",
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
             "user": {
                 "id": user.id,
                 "username": user.username,
@@ -77,58 +79,30 @@ class CookieLoginView(APIView):
             }
         })
 
-        response.set_cookie(
-            key='access_token',
-            value=access_token,
-            httponly=True,
-            secure=True,          # en prod; en local usa HTTPS o, si no puedes, pon False temporalmente
-            samesite='None',      # <— clave para cross-origin
-            max_age=60*60,
-        )
+# VERIFICACION DE AUTENTICACION — usuario del token actual
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        response.set_cookie(
-            key='refresh_token',
-            value=refresh_token,
-            httponly=True,
-            secure=True,          # idem
-            samesite='None',
-            max_age=60*60*24,
-        )
-
-        return response
-
-# VERIFICACION DE AUTENTICACION
-class HelloFromCookieView(APIView):
     def get(self, request):
-        access_token = request.COOKIES.get('access_token')
-
-        if not access_token:
-            return Response({"detail": "No se encontró el token en cookies"}, status=401)
-        
-        jwt_authenticator = JWTAuthentication()
-        try:
-            validated_user, token = jwt_authenticator.authenticate(request._request)
-        except Exception as e:
-            return Response({"detail": f"Token inválido: {str(e)}"}, status=401)
-
+        user = request.user
         return Response({
-            "message": f"Hola, {validated_user.username}",
-            "user": {                          # ← agregar esto
-                "id": validated_user.id,
-                "username": validated_user.username,
-                "email": validated_user.email,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
             }
         })
 
 # CERRAR SESION
+# Con auth por header Bearer, el cierre de sesión es del lado del cliente:
+# el frontend descarta el access token. (El refresh expira solo en 1 día.)
+# Si en el futuro quieres invalidar tokens en servidor, habilita la app
+# token_blacklist de SimpleJWT y haz blacklist del refresh aquí.
 class LogoutView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
-        response = Response({"message": "Sesión cerrada correctamente."})
-        
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token")
-        
-        return response
+        return Response({"message": "Sesión cerrada. Descarta el token en el cliente."})
     
 # ROLES
 class RolListCreateView(generics.ListCreateAPIView):
