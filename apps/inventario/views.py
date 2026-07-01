@@ -1,11 +1,12 @@
 from decimal import Decimal
 from django.db.models import F, Sum, Count, DecimalField
 from django.db.models.functions import Coalesce
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from apps.autenticacion.permissions import IsAdminOrReadOnly
 
@@ -185,6 +186,13 @@ class ProductoViewSet(viewsets.ModelViewSet):
 # ─────────────────────────────────────────────────────────────────
 # DASHBOARD / ESTADÍSTICAS
 # ─────────────────────────────────────────────────────────────────
+@extend_schema(
+    responses=inline_serializer("DashboardResponse", {
+        "inventario":  serializers.DictField(),
+        "operaciones": serializers.DictField(),
+    }),
+    summary="Resumen del panel de control",
+)
 class DashboardView(APIView):
     """
     Resumen para el panel de control.

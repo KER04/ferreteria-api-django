@@ -37,11 +37,12 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
-    
+    'drf_spectacular',
+
     'apps.autenticacion',
     # CORS
     'corsheaders',
-    
+
 ]
 
 MIDDLEWARE = [
@@ -120,6 +121,8 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # Genera el esquema OpenAPI para Swagger/Redoc
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # Límite de peticiones — protege contra abuso y fuerza bruta
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -138,6 +141,21 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# ─────────────────────────────────────────────────────────────────
+# OpenAPI / Swagger (drf-spectacular)
+# ─────────────────────────────────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Ferretería',
+    'DESCRIPTION': (
+        'API REST para gestión de inventario, ventas, préstamos, '
+        'devoluciones y mantenimiento de una ferretería. '
+        'Autenticación por JWT (header Authorization: Bearer <token>).'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,      # no exponer el schema crudo en /docs
+    'COMPONENT_SPLIT_REQUEST': True,    # separa serializers de lectura/escritura
 }
 
 # Internationalization

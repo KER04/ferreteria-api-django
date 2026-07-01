@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from .models import Rol, UsuarioRol, Recurso, RecursoRol
 
 Usuario = get_user_model()
@@ -34,6 +35,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = ['id', 'username', 'first_name', 'last_name', 'promedio', 'disponibilidad', 'roles']
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_roles(self, obj):
         asignaciones = UsuarioRol.objects.filter(usuario=obj).select_related('rol')
         return [{"id": ar.rol.id, "nombre": ar.rol.nombre} for ar in asignaciones]

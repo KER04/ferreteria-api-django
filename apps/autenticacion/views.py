@@ -1,10 +1,11 @@
 # Importaciones:
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers as drf_serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, inline_serializer
 from django.contrib.auth import authenticate
 from .models import Usuario, Rol, UsuarioRol, Recurso, RecursoRol
 from .permissions import TieneAccesoRecurso, IsAdminRole
@@ -54,6 +55,18 @@ class UsuarioRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminRole]
 
 # INICIAR SESION — devuelve los tokens en el body (auth por header Bearer)
+@extend_schema(
+    request=inline_serializer("LoginRequest", {
+        "username": drf_serializers.CharField(),
+        "password": drf_serializers.CharField(),
+    }),
+    responses=inline_serializer("LoginResponse", {
+        "access":  drf_serializers.CharField(),
+        "refresh": drf_serializers.CharField(),
+        "user":    drf_serializers.DictField(),
+    }),
+    summary="Iniciar sesión",
+)
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -80,6 +93,12 @@ class LoginView(APIView):
         })
 
 # VERIFICACION DE AUTENTICACION — usuario del token actual
+@extend_schema(
+    responses=inline_serializer("MeResponse", {
+        "user": drf_serializers.DictField(),
+    }),
+    summary="Usuario autenticado actual",
+)
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -98,6 +117,13 @@ class MeView(APIView):
 # el frontend descarta el access token. (El refresh expira solo en 1 día.)
 # Si en el futuro quieres invalidar tokens en servidor, habilita la app
 # token_blacklist de SimpleJWT y haz blacklist del refresh aquí.
+@extend_schema(
+    request=None,
+    responses=inline_serializer("LogoutResponse", {
+        "message": drf_serializers.CharField(),
+    }),
+    summary="Cerrar sesión (lado cliente)",
+)
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 

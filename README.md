@@ -136,6 +136,18 @@ La API queda disponible en `http://localhost:8000/`.
 
 ---
 
+## 📖 Documentación interactiva de la API
+
+Con el servidor corriendo:
+
+| Ruta | Descripción |
+|------|-------------|
+| `http://localhost:8000/api/docs/` | **Swagger UI** — explora y prueba todos los endpoints |
+| `http://localhost:8000/api/redoc/` | Redoc — vista alternativa de la documentación |
+| `http://localhost:8000/api/schema/` | Esquema OpenAPI 3 en crudo (YAML) |
+
+> Para probar endpoints protegidos desde Swagger: haz login en `/api/auth/login/`, copia el `access` y pégalo en el botón **Authorize** con el formato `Bearer <token>`.
+
 ## 🔌 Módulos y endpoints
 
 > El CORS está configurado para un frontend en `http://localhost:4200` (Angular).
@@ -249,10 +261,14 @@ El **estado** del producto (`Disponible`, `Prestado`, `Mantenimiento`, `Dañado`
 - [x] Tests automatizados de la lógica de stock
 - [x] Alerta de stock bajo (`?bajo_stock=true`)
 - [x] Endpoint de dashboard (`/api/inventario/dashboard/`)
-- [ ] Documentación interactiva (Swagger / drf-spectacular)
-- [ ] Migración a PostgreSQL para producción
+- [x] Documentación interactiva (Swagger / drf-spectacular)
+- [x] Configuración de logging
+- [x] Rate-limiting (throttling) en autenticación
+- [x] Base de datos configurable vía `DATABASE_URL`
+- [ ] Migración real a PostgreSQL para producción
+- [ ] Docker + CI/CD
+- [ ] Almacenamiento de archivos en la nube (S3) para `media/`
 - [ ] Permisos granulares por recurso (`TieneAccesoRecurso`)
-- [ ] Configuración de logging
 
 ---
 
