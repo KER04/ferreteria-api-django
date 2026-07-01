@@ -12,6 +12,10 @@ __pycache__/
 db.sqlite3
 media/
 
+# Coverage
+.coverage
+htmlcov/
+
 # IDE
 .vscode/
 .idea/

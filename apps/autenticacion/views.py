@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema, inline_serializer
 from django.contrib.auth import authenticate
 from .models import Usuario, Rol, UsuarioRol, Recurso, RecursoRol
@@ -113,22 +114,35 @@ class MeView(APIView):
         })
 
 # CERRAR SESION
-# Con auth por header Bearer, el cierre de sesión es del lado del cliente:
-# el frontend descarta el access token. (El refresh expira solo en 1 día.)
-# Si en el futuro quieres invalidar tokens en servidor, habilita la app
-# token_blacklist de SimpleJWT y haz blacklist del refresh aquí.
+# Cierre de sesión real: invalida el refresh token en el servidor (blacklist),
+# de modo que ya no pueda usarse para generar nuevos access tokens.
 @extend_schema(
-    request=None,
+    request=inline_serializer("LogoutRequest", {
+        "refresh": drf_serializers.CharField(),
+    }),
     responses=inline_serializer("LogoutResponse", {
         "message": drf_serializers.CharField(),
     }),
-    summary="Cerrar sesión (lado cliente)",
+    summary="Cerrar sesión (invalida el refresh token)",
 )
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        return Response({"message": "Sesión cerrada. Descarta el token en el cliente."})
+        refresh = request.data.get("refresh")
+        if not refresh:
+            return Response(
+                {"detail": "Debes enviar el token 'refresh'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            RefreshToken(refresh).blacklist()
+        except TokenError:
+            return Response(
+                {"detail": "Token inválido o ya expirado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"message": "Sesión cerrada. El refresh token fue invalidado."})
     
 # ROLES
 class RolListCreateView(generics.ListCreateAPIView):

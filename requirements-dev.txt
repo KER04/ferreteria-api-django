@@ -1,0 +1,5 @@
+# Dependencias solo para desarrollo y testing (no van en producción).
+# Instalar con: pip install -r requirements-dev.txt
+-r requirements.txt
+
+coverage==7.14.3

@@ -1,8 +1,10 @@
 from decimal import Decimal
+from datetime import timedelta
 
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.inventario.models import TipoCategoria, Marca, Prestamo, Producto
@@ -165,3 +167,27 @@ class CancelarOperacionTests(TestCase):
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.prod_cantidad_disponible, 10)
         self.assertEqual(self.producto.prod_cantidad_prestada, 0)
+
+
+class VencidosTests(TestCase):
+    def setUp(self):
+        self.usuario = Usuario.objects.create_user(username="empleado", password="x")
+        self.client  = APIClient()
+        self.client.force_authenticate(user=self.usuario)
+
+    def test_lista_solo_prestamos_vencidos(self):
+        hoy    = timezone.now().date()
+        vencido = Operacion.objects.create(
+            tipo_operacion=Operacion.TipoOperacion.PRESTAMO,
+            usuario=self.usuario, fecha_devolucion=hoy - timedelta(days=1),
+        )
+        # Préstamo con fecha futura → NO debe aparecer
+        Operacion.objects.create(
+            tipo_operacion=Operacion.TipoOperacion.PRESTAMO,
+            usuario=self.usuario, fecha_devolucion=hoy + timedelta(days=3),
+        )
+
+        resp = self.client.get("/api/operaciones/operaciones/vencidos/")
+        self.assertEqual(resp.status_code, 200)
+        codigos = [o["codigo_operacion"] for o in resp.data["results"]]
+        self.assertEqual(codigos, [vencido.codigo_operacion])
